@@ -26,7 +26,7 @@
 #include <fstream>
 #include <cmath>
 
-#define ROBOT_RADIUS 10
+#define ROBOT_RADIUS 45
 #define CENTER_LINE_COLOR TX_YELLOW
 #define MAIN_LINE_COLOR TX_BLUE
 #define VERTEX_COLOR TX_LIGHTRED
@@ -61,6 +61,7 @@ public:
     Point* vertexList;
     Point* lastVertex;
     Point* drawingVertex;
+    int radius;
 
     Manager ():
         mouseLButton (0),
@@ -68,12 +69,14 @@ public:
         choosedVertex (0),
         vertexList (0),
         lastVertex (0),
-        drawingVertex (0)
+        drawingVertex (0),
+        radius (10)
+        
     {
     }
 
     ~Manager () {
-        //RemoveVertexList();
+        RemoveVertexList();
     }
 
     void RemoveVertexList() {
@@ -99,7 +102,7 @@ public:
             {
                 mX = txMouseX ();
                 mY = txMouseY ();
-                if ((now -> x - mX) * (now -> x - mX) + (now -> y - mY) * (now -> y - mY) <= ROBOT_RADIUS * ROBOT_RADIUS)
+                if ((now -> x - mX) * (now -> x - mX) + (now -> y - mY) * (now -> y - mY) <= radius * radius)
                 {
                     mouseLButton = 1;
                     choosedVertex = now;
@@ -152,7 +155,7 @@ public:
 
             while (now)
             {
-                if ((now -> x - mX) * (now -> x - mX) + (now -> y - mY) * (now -> y - mY) <= ROBOT_RADIUS * ROBOT_RADIUS)
+                if ((now -> x - mX) * (now -> x - mX) + (now -> y - mY) * (now -> y - mY) <= radius * radius)
                 {
                     Point* p = new Point (txMouseX(), txMouseY (), now, now -> next);
                     if (now -> next) now -> next -> prev = p;
@@ -186,7 +189,7 @@ public:
 
         if ((choosedVertex -> x - mX) * (choosedVertex -> x - mX) + (choosedVertex -> y - mY) * (choosedVertex -> y - mY)
             <=
-            ROBOT_RADIUS * ROBOT_RADIUS)
+            radius * radius)
         {
 
             Point* now = drawingVertex;
@@ -230,7 +233,7 @@ public:
                     txSetFillColor (VERTEX_COLOR);
                 }
 
-                txCircle (now -> x, now -> y, ROBOT_RADIUS);
+                txCircle (now -> x, now -> y, radius);
 
             return;
         }
@@ -239,7 +242,7 @@ public:
         {
             if (now -> prev)
             {
-                txSetColor (MAIN_LINE_COLOR, ROBOT_RADIUS * 2);
+                txSetColor (MAIN_LINE_COLOR, radius * 2);
                 txSetFillColor (MAIN_LINE_COLOR);
                 txLine (now -> prev -> x, now -> prev -> y, now -> x, now -> y);
 
@@ -258,7 +261,7 @@ public:
                     txSetFillColor (VERTEX_COLOR);
                 }
 
-                txCircle (now -> x, now -> y, ROBOT_RADIUS);
+                txCircle (now -> x, now -> y, radius);
 
                 if (now -> prev == lastVertex)
                 {
@@ -271,7 +274,7 @@ public:
                     txSetFillColor (VERTEX_COLOR);
                 }
 
-                txCircle (now -> prev -> x, now -> prev -> y, ROBOT_RADIUS);
+                txCircle (now -> prev -> x, now -> prev -> y, radius);
             }
 
             now = now -> next;
@@ -333,7 +336,7 @@ public:
 
         while (nextlst) {
             file << std::endl;
-            file << getDistance(prevlst, lst) << ' ' << getAngle(prevlst, lst, nextlst);
+            file << getDistance(prevlst, lst) * 3 << ' ' << getAngle(prevlst, lst, nextlst);
 
             prevlst = lst;
             lst = nextlst;
@@ -376,6 +379,8 @@ public:
 
             /* if we read angle, we can read the distance */
             file >> sdistance;
+            
+            sdistance /= 3;
 
             /* we know a global angle and path */
             /* calculate delta-x and delta-y */
@@ -399,12 +404,16 @@ public:
 
 int main()
     {
-    txCreateWindow (920, 600);
+    txCreateWindow (1000, 672);
+    
+    txTextOut(5, 652, "Mouse (vertexes): Left - Add and Move, Right - Delete and Clone; Esc - save and exit; Space - expand lines; Ctrl-S - save in report.txt, Ctrl-O - load report.txt");
+    
     txTextCursor (false);
 
-    HDC field = txLoadImage (".\\field_color.bmp");
-
-    txBitBlt (txDC(), 0, 0, 920, 600, field, 0, 0);
+    HDC field = txLoadImage ("field_color.bmp");
+    
+    if (field)
+       txBitBlt (txDC(), 0, 0, 1000, 652, field, 0, 0);
 
     Manager* manager = new Manager ();
 
@@ -412,10 +421,16 @@ int main()
 
     while (!GetAsyncKeyState(VK_ESCAPE))
     {
-        if (txMouseButtons () & 1)     manager -> LButtonDown ();
-        if (! (txMouseButtons () & 1)) manager -> LButtonUp ();
-        if (txMouseButtons () >> 1)    manager -> RButtonDown ();
-        if (!(txMouseButtons () >> 1)) manager -> RButtonUp ();
+        if (txMouseButtons () & 1)       manager -> LButtonDown ();
+        if (! (txMouseButtons () & 1))   manager -> LButtonUp ();
+        if (txMouseButtons () >> 1)      manager -> RButtonDown ();
+        if (!(txMouseButtons () >> 1))   manager -> RButtonUp ();
+        if (GetAsyncKeyState (VK_SPACE)) manager -> radius = ROBOT_RADIUS;
+        else manager -> radius = 10;
+        if (GetAsyncKeyState (VK_CONTROL)) {
+           if (GetAsyncKeyState ('S')) manager -> Export ("report.txt");
+           if (GetAsyncKeyState ('O')) manager -> Import ("report.txt");                     
+        }
 
         txBegin ();
         txBitBlt (txDC(), 0, 0, 1000, 667, field, 0, 0);
